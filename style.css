@@ -65,6 +65,7 @@ body {
   height: 100%;
   background: radial-gradient(circle, transparent 50%, rgba(255, 255, 255, 0.05) 100%);
   border-radius: 50%;
+  transform: translate(-50%, -50%);
   animation: rotate-dust 10s linear infinite;
 }
 
