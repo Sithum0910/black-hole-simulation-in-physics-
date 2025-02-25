@@ -1,138 +1,71 @@
-let blackHole;
-let particles = [];
-let photonSphereRadius;
-let eventHorizonRadius;
+// Basic Three.js Black Hole Simulation
+import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 
-function setup() {
-  createCanvas(windowWidth, windowHeight);
+// Scene setup
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
 
-  // Initialize black hole
-  blackHole = {
-    x: width / 2,
-    y: height / 2,
-    mass: 10000,
-    radius: 30
-  };
+// Black Hole (a simple black sphere)
+const geometry = new THREE.SphereGeometry(2, 32, 32);
+const material = new THREE.MeshBasicMaterial({ color: 0x000000, wireframe: false });
+const blackHole = new THREE.Mesh(geometry, material);
+scene.add(blackHole);
 
-  // Calculate radii for photon sphere and event horizon
-  photonSphereRadius = blackHole.radius * 1.5;
-  eventHorizonRadius = blackHole.radius;
+// Accretion Disk (particles around the black hole)
+const particlesGeometry = new THREE.BufferGeometry();
+const particlesMaterial = new THREE.PointsMaterial({ size: 0.05 });
+const particleCount = 500;
+const positions = [];
 
-  // Create particles for accretion disk
-  for (let i = 0; i < 200; i++) {
-    let angle = random(TWO_PI);
-    let radius = random(eventHorizonRadius + 50, width / 2);
-    particles.push({
-      x: blackHole.x + radius * cos(angle),
-      y: blackHole.y + radius * sin(angle),
-      vx: random(-1, 1),
-      vy: random(-1, 1),
-      mass: random(1, 3)
-    });
-  }
+for (let i = 0; i < particleCount; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const radius = 3 + Math.random() * 2;
+    const x = Math.cos(angle) * radius;
+    const y = (Math.random() - 0.5) * 0.5;
+    const z = Math.sin(angle) * radius;
+    positions.push(x, y, z);
 }
 
-function draw() {
-  background(0);
+particlesGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+const accretionDisk = new THREE.Points(particlesGeometry, particlesMaterial);
+scene.add(accretionDisk);
 
-  // Draw black hole
-  drawBlackHole();
+// Object falling into the black hole
+const fallingObject = new THREE.SphereGeometry(0.2, 16, 16);
+const fallingMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+const fallingMesh = new THREE.Mesh(fallingObject, fallingMaterial);
+fallingMesh.position.set(5, 0, 0);
+scene.add(fallingMesh);
 
-  // Draw accretion disk
-  drawAccretionDisk();
+// Camera and Controls
+camera.position.z = 10;
+const controls = new OrbitControls(camera, renderer.domElement);
 
-  // Draw photon sphere
-  drawPhotonSphere();
-
-  // Draw gravitational lensing effect
-  drawGravitationalLensing();
-}
-
-function drawBlackHole() {
-  // Event horizon
-  noStroke();
-  fill(0);
-  ellipse(blackHole.x, blackHole.y, eventHorizonRadius * 2, eventHorizonRadius * 2);
-
-  // Glow effect
-  for (let i = 0; i < 10; i++) {
-    let alpha = map(i, 0, 10, 50, 0);
-    let radius = map(i, 0, 10, eventHorizonRadius * 2, eventHorizonRadius * 3);
-    fill(255, 0, 0, alpha);
-    ellipse(blackHole.x, blackHole.y, radius, radius);
-  }
-}
-
-function drawAccretionDisk() {
-  for (let particle of particles) {
-    // Calculate gravitational force
-    let dx = blackHole.x - particle.x;
-    let dy = blackHole.y - particle.y;
-    let distance = sqrt(dx * dx + dy * dy);
-    let force = (blackHole.mass * particle.mass) / (distance * distance);
-
-    // Apply force
-    particle.vx += (force * dx / distance) * 0.01;
-    particle.vy += (force * dy / distance) * 0.01;
-
-    // Update position
-    particle.x += particle.vx;
-    particle.y += particle.vy;
-
-    // Draw particle
-    fill(100, 150, 255, 150);
-    noStroke();
-    ellipse(particle.x, particle.y, particle.mass, particle.mass);
-
-    // Remove particles that get too close to the black hole
-    if (distance < eventHorizonRadius) {
-      particles.splice(particles.indexOf(particle), 1);
+// Animation loop
+function animate() {
+    requestAnimationFrame(animate);
+    accretionDisk.rotation.y += 0.01;
+    
+    // Spaghettification effect
+    if (fallingMesh.position.x > 0) {
+        fallingMesh.scale.y += 0.01;
+        fallingMesh.scale.x -= 0.002;
+        fallingMesh.scale.z -= 0.002;
+        fallingMesh.position.x -= 0.05;
     }
-  }
-
-  // Add new particles to simulate continuous accretion
-  if (frameCount % 10 === 0) {
-    let angle = random(TWO_PI);
-    let radius = random(eventHorizonRadius + 50, width / 2);
-    particles.push({
-      x: blackHole.x + radius * cos(angle),
-      y: blackHole.y + radius * sin(angle),
-      vx: random(-1, 1),
-      vy: random(-1, 1),
-      mass: random(1, 3)
-    });
-  }
+    
+    renderer.render(scene, camera);
 }
 
-function drawPhotonSphere() {
-  // Photon sphere
-  noFill();
-  stroke(255, 255, 0, 100);
-  strokeWeight(2);
-  ellipse(blackHole.x, blackHole.y, photonSphereRadius * 2, photonSphereRadius * 2);
-}
+animate();
 
-function drawGravitationalLensing() {
-  // Simulate light bending around the black hole
-  for (let x = 0; x < width; x += 20) {
-    for (let y = 0; y < height; y += 20) {
-      let dx = x - blackHole.x;
-      let dy = y - blackHole.y;
-      let distance = sqrt(dx * dx + dy * dy);
-
-      if (distance > eventHorizonRadius) {
-        let distortion = 1000 / distance; // Simple distortion formula
-        let newX = x + dx * distortion;
-        let newY = y + dy * distortion;
-
-        // Draw distorted light
-        stroke(255, 100);
-        point(newX, newY);
-      }
-    }
-  }
-}
-
-function windowResized() {
-  resizeCanvas(windowWidth, windowHeight);
-}
+// Responsive handling
+window.addEventListener('resize', () => {
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+});
