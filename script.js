@@ -1,71 +1,83 @@
-// Basic Three.js Black Hole Simulation
-import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+const canvas = document.getElementById('simulationCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
-// Scene setup
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement);
+// Black hole properties
+const blackHole = {
+  x: canvas.width / 2,
+  y: canvas.height / 2,
+  mass: 10000, // Arbitrary mass value
+  radius: 20, // Visual radius
+  schwarzschildRadius: 50 // Event horizon
+};
 
-// Black Hole (a simple black sphere)
-const geometry = new THREE.SphereGeometry(2, 32, 32);
-const material = new THREE.MeshBasicMaterial({ color: 0x000000, wireframe: false });
-const blackHole = new THREE.Mesh(geometry, material);
-scene.add(blackHole);
-
-// Accretion Disk (particles around the black hole)
-const particlesGeometry = new THREE.BufferGeometry();
-const particlesMaterial = new THREE.PointsMaterial({ size: 0.05 });
-const particleCount = 500;
-const positions = [];
-
-for (let i = 0; i < particleCount; i++) {
-    const angle = Math.random() * Math.PI * 2;
-    const radius = 3 + Math.random() * 2;
-    const x = Math.cos(angle) * radius;
-    const y = (Math.random() - 0.5) * 0.5;
-    const z = Math.sin(angle) * radius;
-    positions.push(x, y, z);
+// Object properties
+const objects = [];
+for (let i = 0; i < 10; i++) {
+  objects.push({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height,
+    vx: (Math.random() - 0.5) * 2,
+    vy: (Math.random() - 0.5) * 2,
+    mass: 1,
+    radius: 5
+  });
 }
 
-particlesGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-const accretionDisk = new THREE.Points(particlesGeometry, particlesMaterial);
-scene.add(accretionDisk);
+// Gravity function
+function gravity(object, blackHole) {
+  const dx = blackHole.x - object.x;
+  const dy = blackHole.y - object.y;
+  const distance = Math.sqrt(dx * dx + dy * dy);
+  const force = (blackHole.mass * object.mass) / (distance * distance);
+  const angle = Math.atan2(dy, dx);
+  return {
+    fx: force * Math.cos(angle),
+    fy: force * Math.sin(angle)
+  };
+}
 
-// Object falling into the black hole
-const fallingObject = new THREE.SphereGeometry(0.2, 16, 16);
-const fallingMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
-const fallingMesh = new THREE.Mesh(fallingObject, fallingMaterial);
-fallingMesh.position.set(5, 0, 0);
-scene.add(fallingMesh);
+// Update and render
+function update() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-// Camera and Controls
-camera.position.z = 10;
-const controls = new OrbitControls(camera, renderer.domElement);
+  // Draw black hole
+  ctx.fillStyle = 'red';
+  ctx.beginPath();
+  ctx.arc(blackHole.x, blackHole.y, blackHole.radius, 0, Math.PI * 2);
+  ctx.fill();
 
-// Animation loop
-function animate() {
-    requestAnimationFrame(animate);
-    accretionDisk.rotation.y += 0.01;
-    
-    // Spaghettification effect
-    if (fallingMesh.position.x > 0) {
-        fallingMesh.scale.y += 0.01;
-        fallingMesh.scale.x -= 0.002;
-        fallingMesh.scale.z -= 0.002;
-        fallingMesh.position.x -= 0.05;
+  // Draw event horizon
+  ctx.strokeStyle = 'white';
+  ctx.beginPath();
+  ctx.arc(blackHole.x, blackHole.y, blackHole.schwarzschildRadius, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Update objects
+  objects.forEach((obj, index) => {
+    const force = gravity(obj, blackHole);
+    obj.vx += force.fx / obj.mass;
+    obj.vy += force.fy / obj.mass;
+    obj.x += obj.vx;
+    obj.y += obj.vy;
+
+    // Check if object is inside event horizon
+    const dx = obj.x - blackHole.x;
+    const dy = obj.y - blackHole.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    if (distance < blackHole.schwarzschildRadius) {
+      objects.splice(index, 1); // Remove object
     }
-    
-    renderer.render(scene, camera);
+
+    // Draw object
+    ctx.fillStyle = 'blue';
+    ctx.beginPath();
+    ctx.arc(obj.x, obj.y, obj.radius, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  requestAnimationFrame(update);
 }
 
-animate();
-
-// Responsive handling
-window.addEventListener('resize', () => {
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-});
+update();
